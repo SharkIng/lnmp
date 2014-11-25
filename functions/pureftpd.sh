@@ -15,11 +15,12 @@ src_url=http://machiel.generaal.net/files/pureftpd/ftp_v2.1.tar.gz && Download_s
 tar xzf pure-ftpd-1.0.36.tar.gz
 cd pure-ftpd-1.0.36
 [ $OS == 'Ubuntu' ] && ln -s $db_install_dir/lib/libmysqlclient.so /usr/lib
-./configure --prefix=$pureftpd_install_dir CFLAGS=-O2 --with-mysql=$db_install_dir --with-quotas --with-cookie --with-virtualhosts --with-virtualchroot --with-diraliases --with-sysquotas --with-ratios --with-altlog --with-paranoidmsg --with-shadow --with-welcomemsg  --with-throttling --with-uploadscript --with-language=english
+./configure --prefix=$pureftpd_install_dir CFLAGS=-O2 --with-mysql=$db_install_dir --with-quotas --with-cookie --with-virtualhosts --with-virtualchroot --with-diraliases --with-sysquotas --with-ratios --with-altlog --with-paranoidmsg --with-shadow --with-welcomemsg  --with-throttling --with-uploadscript --with-language=english --with-rfc2640
 make && make install
 if [ -d "$pureftpd_install_dir" ];then
         echo -e "\033[32mPure-Ftp install successfully! \033[0m"
 	cp configuration-file/pure-config.pl $pureftpd_install_dir/sbin
+	sed -i "s@/usr/local/pureftpd@$pureftpd_install_dir@" $pureftpd_install_dir/sbin/pure-config.pl
 	chmod +x $pureftpd_install_dir/sbin/pure-config.pl
 	cp contrib/redhat.init /etc/init.d/pureftpd
 	cd ../../
@@ -34,6 +35,8 @@ update-rc.d pureftpd defaults"
 	OS_command
 
 	/bin/cp conf/pure-ftpd.conf $pureftpd_install_dir/
+	sed -i "s@^MySQLConfigFile.*@MySQLConfigFile   $pureftpd_install_dir/pureftpd-mysql.conf@" $pureftpd_install_dir/pure-ftpd.conf
+	sed -i "s@^LimitRecursion.*@LimitRecursion	65535 8@" $pureftpd_install_dir/pure-ftpd.conf
 	/bin/cp conf/pureftpd-mysql.conf $pureftpd_install_dir/
 	conn_ftpusers_dbpwd=`cat /dev/urandom | head -1 | md5sum | head -c 8`
 	sed -i "s@^conn_ftpusers_dbpwd.*@conn_ftpusers_dbpwd=$conn_ftpusers_dbpwd@" options.conf

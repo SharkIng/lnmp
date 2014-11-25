@@ -1,7 +1,8 @@
 #!/bin/bash
 # Author:  yeho <lj2007331 AT gmail.com>
 # Blog:  http://blog.linuxeye.com
-Install_MySQL-5-5()
+
+Install_MariaDB-10-0()
 {
 cd $lnmp_dir/src
 . ../functions/download.sh 
@@ -9,35 +10,36 @@ cd $lnmp_dir/src
 . ../options.conf
 
 src_url=http://www.cmake.org/files/v3.0/cmake-3.0.2.tar.gz && Download_src 
-src_url=http://cdn.mysql.com/Downloads/MySQL-5.5/mysql-5.5.40.tar.gz && Download_src
+src_url=https://downloads.mariadb.org/f/mariadb-10.0.14/source/mariadb-10.0.14.tar.gz && Download_src 
 
 useradd -M -s /sbin/nologin mysql
-mkdir -p $mysql_data_dir;chown mysql.mysql -R $mysql_data_dir
+mkdir -p $mariadb_data_dir;chown mysql.mysql -R $mariadb_data_dir
 if [ ! -e "`which cmake`" ];then
-	tar xzf cmake-3.0.2.tar.gz
-	cd cmake-3.0.2
-	CFLAGS= CXXFLAGS= ./configure
-	make && make install
-	cd ..
+        tar xzf cmake-3.0.2.tar.gz
+        cd cmake-3.0.2
+        CFLAGS= CXXFLAGS= ./configure
+        make && make install
+        cd ..
 	/bin/rm -rf cmake-3.0.2
 fi
-tar zxf mysql-5.5.40.tar.gz
-cd mysql-5.5.40
+tar zxf mariadb-10.0.14.tar.gz
+cd mariadb-10.0.14
 if [ "$je_tc_malloc" == '1' ];then
-        EXE_LINKER="-DCMAKE_EXE_LINKER_FLAGS='-ljemalloc'"
+	EXE_LINKER="-DCMAKE_EXE_LINKER_FLAGS='-ljemalloc'"
 elif [ "$je_tc_malloc" == '2' ];then
-        EXE_LINKER="-DCMAKE_EXE_LINKER_FLAGS='-ltcmalloc'"
+	EXE_LINKER="-DCMAKE_EXE_LINKER_FLAGS='-ltcmalloc'"
 fi
 make clean
-cmake . -DCMAKE_INSTALL_PREFIX=$mysql_install_dir \
--DMYSQL_DATADIR=$mysql_data_dir \
--DSYSCONFDIR=/etc \
+cmake . -DCMAKE_INSTALL_PREFIX=$mariadb_install_dir \
+-DMYSQL_DATADIR=$mariadb_data_dir \
+-DWITH_ARIA_STORAGE_ENGINE=1 \
+-DWITH_XTRADB_STORAGE_ENGINE=1 \
+-DWITH_ARCHIVE_STORAGE_ENGINE=1 \
 -DWITH_INNOBASE_STORAGE_ENGINE=1 \
 -DWITH_PARTITION_STORAGE_ENGINE=1 \
--DWITH_FEDERATED_STORAGE_ENGINE=1 \
+-DWITH_FEDERATEDX_STORAGE_ENGINE=1 \
 -DWITH_BLACKHOLE_STORAGE_ENGINE=1 \
 -DWITH_MYISAM_STORAGE_ENGINE=1 \
--DWITH_ARCHIVE_STORAGE_ENGINE=1 \
 -DWITH_READLINE=1 \
 -DENABLED_LOCAL_INFILE=1 \
 -DDEFAULT_CHARSET=utf8 \
@@ -46,13 +48,14 @@ cmake . -DCMAKE_INSTALL_PREFIX=$mysql_install_dir \
 $EXE_LINKER
 make && make install
 
-if [ -d "$mysql_install_dir" ];then
-        echo -e "\033[32mMySQL install successfully! \033[0m"
+if [ -d "$mariadb_install_dir" ];then
+        echo -e "\033[32mMariaDB install successfully! \033[0m"
 else
-        echo -e "\033[31mMySQL install failed, Please contact the author! \033[0m"
+        echo -e "\033[31mMariaDB install failed, Please contact the author! \033[0m"
         kill -9 $$
 fi
 
+/bin/cp support-files/my-small.cnf /etc/my.cnf
 /bin/cp support-files/mysql.server /etc/init.d/mysqld
 chmod +x /etc/init.d/mysqld
 OS_CentOS='chkconfig --add mysqld \n
@@ -60,7 +63,7 @@ chkconfig mysqld on'
 OS_Debian_Ubuntu='update-rc.d mysqld defaults'
 OS_command
 cd ..
-/bin/rm -rf mysql-5.5.40
+/bin/rm -rf mariadb-10.0.14 
 cd ..
 
 # my.cf
@@ -73,9 +76,9 @@ socket = /tmp/mysql.sock
 port = 3306
 socket = /tmp/mysql.sock
 
-basedir = $mysql_install_dir
-datadir = $mysql_data_dir
-pid-file = $mysql_data_dir/mysql.pid
+basedir = $mariadb_install_dir
+datadir = $mariadb_data_dir
+pid-file = $mariadb_data_dir/mysql.pid
 user = mysql
 bind-address = 0.0.0.0
 server-id = 1
@@ -111,10 +114,10 @@ log_bin = mysql-bin
 binlog_format = mixed
 expire_logs_days = 30
 
-log_error = $mysql_data_dir/mysql-error.log
+log_error = $mariadb_data_dir/mysql-error.log
 slow_query_log = 1
 long_query_time = 1
-slow_query_log_file = $mysql_data_dir/mysql-slow.log
+slow_query_log_file = $mariadb_data_dir/mysql-slow.log
 
 performance_schema = 0
 
@@ -184,22 +187,22 @@ elif [ $Memtatol -gt 3500 ];then
         sed -i 's@^table_open_cache.*@table_open_cache = 1024@' /etc/my.cnf
 fi
 
-$mysql_install_dir/scripts/mysql_install_db --user=mysql --basedir=$mysql_install_dir --datadir=$mysql_data_dir
+$mariadb_install_dir/scripts/mysql_install_db --user=mysql --basedir=$mariadb_install_dir --datadir=$mariadb_data_dir
 
-chown mysql.mysql -R $mysql_data_dir
+chown mysql.mysql -R $mariadb_data_dir
 service mysqld start
-export PATH=$mysql_install_dir/bin:$PATH
-[ -z "`cat /etc/profile | grep $mysql_install_dir`" ] && echo "export PATH=$mysql_install_dir/bin:\$PATH" >> /etc/profile 
+export PATH=$mariadb_install_dir/bin:$PATH
+[ -z "`cat /etc/profile | grep $mariadb_install_dir`" ] && echo "export PATH=$mariadb_install_dir/bin:\$PATH" >> /etc/profile 
 . /etc/profile
 
-$mysql_install_dir/bin/mysql -e "grant all privileges on *.* to root@'127.0.0.1' identified by \"$dbrootpwd\" with grant option;"
-$mysql_install_dir/bin/mysql -e "grant all privileges on *.* to root@'localhost' identified by \"$dbrootpwd\" with grant option;"
-$mysql_install_dir/bin/mysql -uroot -p$dbrootpwd -e "delete from mysql.user where Password='';"
-$mysql_install_dir/bin/mysql -uroot -p$dbrootpwd -e "delete from mysql.db where User='';"
-$mysql_install_dir/bin/mysql -uroot -p$dbrootpwd -e "delete from mysql.proxies_priv where Host!='localhost';"
-$mysql_install_dir/bin/mysql -uroot -p$dbrootpwd -e "drop database test;"
-$mysql_install_dir/bin/mysql -uroot -p$dbrootpwd -e "reset master;"
-sed -i "s@^db_install_dir.*@db_install_dir=$mysql_install_dir@" options.conf
-sed -i "s@^db_data_dir.*@db_data_dir=$mysql_data_dir@" options.conf
+$mariadb_install_dir/bin/mysql -e "grant all privileges on *.* to root@'127.0.0.1' identified by \"$dbrootpwd\" with grant option;"
+$mariadb_install_dir/bin/mysql -e "grant all privileges on *.* to root@'localhost' identified by \"$dbrootpwd\" with grant option;"
+$mariadb_install_dir/bin/mysql -uroot -p$dbrootpwd -e "delete from mysql.user where Password='';"
+$mariadb_install_dir/bin/mysql -uroot -p$dbrootpwd -e "delete from mysql.db where User='';"
+$mariadb_install_dir/bin/mysql -uroot -p$dbrootpwd -e "delete from mysql.proxies_priv where Host!='localhost';"
+$mariadb_install_dir/bin/mysql -uroot -p$dbrootpwd -e "drop database test;"
+$mariadb_install_dir/bin/mysql -uroot -p$dbrootpwd -e "reset master;"
+sed -i "s@^db_install_dir.*@db_install_dir=$mariadb_install_dir@" options.conf
+sed -i "s@^db_data_dir.*@db_data_dir=$mariadb_data_dir@" options.conf
 service mysqld stop
 }

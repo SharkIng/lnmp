@@ -9,24 +9,24 @@ cd $lnmp_dir/src
 . ../options.conf
 
 rm -rf ngx_pagespeed*
-src_url=https://dl.google.com/dl/page-speed/psol/1.6.29.7.tar.gz && Download_src
-[ -s "release-1.6.29.7-beta.zip" ] && echo "release-1.6.29.7-beta.zip found" || wget -c --no-check-certificate -O ngx_pagespeed-master.zip https://github.com/pagespeed/ngx_pagespeed/archive/master.zip 
+src_url=https://dl.google.com/dl/page-speed/psol/1.9.32.2.tar.gz && Download_src
+[ -s "ngx_pagespeed-1.9.32.2-beta.zip" ] && echo "ngx_pagespeed-1.9.32.2-beta.zip found" || wget -c --no-check-certificate -O ngx_pagespeed-1.9.32.2-beta.zip https://github.com/pagespeed/ngx_pagespeed/archive/master.zip 
 
-unzip -q ngx_pagespeed-master.zip 
-/bin/mv ngx_pagespeed-master ngx_pagespeed-release-1.6.29.7-beta
-tar xzf 1.6.29.7.tar.gz -C ngx_pagespeed-release-1.6.29.7-beta
+unzip -q ngx_pagespeed-1.9.32.2-beta.zip 
+/bin/mv ngx_pagespeed-master ngx_pagespeed-1.9.32.2-beta 
+tar xzf 1.9.32.2.tar.gz -C ngx_pagespeed-1.9.32.2-beta 
 
-if [ "$Web_server" == '1' ];then
-	cd nginx-1.4.3
+if [ "$Nginx_version" == '1' ];then
+	cd nginx-1.6.2
 	make clean
 	$web_install_dir/sbin/nginx -V &> $$
 	nginx_configure_arguments=`cat $$ | grep 'configure arguments:' | awk -F: '{print $2}'`
 	rm -rf $$
 
 	if [ `getconf WORD_BIT` == 32 ] && [ `getconf LONG_BIT` == 64 ] ;then
-		./configure $nginx_configure_arguments --add-module=../ngx_pagespeed-release-1.6.29.7-beta --with-cc-opt='-DLINUX=2 -D_REENTRANT -D_LARGEFILE64_SOURCE -pthread'
+		./configure $nginx_configure_arguments --add-module=../ngx_pagespeed-1.9.32.2-beta --with-cc-opt='-DLINUX=2 -D_REENTRANT -D_LARGEFILE64_SOURCE -pthread'
 	else
-		./configure $nginx_configure_arguments --add-module=../ngx_pagespeed-release-1.6.29.7-beta --with-cc-opt='-DLINUX=2 -D_REENTRANT -D_LARGEFILE64_SOURCE -march=i686 -pthread'
+		./configure $nginx_configure_arguments --add-module=../ngx_pagespeed-1.9.32.2-beta --with-cc-opt='-DLINUX=2 -D_REENTRANT -D_LARGEFILE64_SOURCE -march=i686 -pthread'
 	fi
 
 	make
@@ -42,8 +42,8 @@ if [ "$Web_server" == '1' ];then
 		echo -e "\033[31minstall ngx_pagespeed failed\033[0m"
 	fi
 	cd ../
-elif [ "$Web_server" == '2' ];then
-	$web_install_dir/sbin/dso_tool --add-module=$lnmp_dir/src/ngx_pagespeed-release-1.6.29.7-beta
+elif [ "$Nginx_version" == '2' ];then
+	$web_install_dir/sbin/dso_tool --add-module=$lnmp_dir/src/ngx_pagespeed-1.9.32.2-beta
 	if [ -f "$web_install_dir/modules/ngx_pagespeed.so" ];then
 		sed -i "s@^dso\(.*\)@dso\1\n\tload ngx_pagespeed.so;@" $web_install_dir/conf/nginx.conf
 		mkdir /var/ngx_pagespeed_cache

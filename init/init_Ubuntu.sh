@@ -2,18 +2,22 @@
 # Author:  yeho <lj2007331 AT gmail.com>
 # Blog:  http://blog.linuxeye.com
 
-apt-get -y remove apache2 apache2-doc apache2-utils apache2.2-common apache2.2-bin apache2-mpm-prefork apache2-doc apache2-mpm-worker mysql-client mysql-server mysql-common php5 php5-common php5-cgi php5-mysql php5-curl php5-gd
-dpkg -p apache2 apache2-doc apache2-mpm-prefork apache2-utils apache2.2-common libmysqlclient15off libmysqlclient15-dev mysql-common php5 php5-common php5-cgi php5-mysql php5-curl php5-gd
+for Package in apache2 apache2-doc apache2-utils apache2.2-common apache2.2-bin apache2-mpm-prefork apache2-doc apache2-mpm-worker mysql-client mysql-server mysql-common php5 php5-common php5-cgi php5-mysql php5-curl php5-gd libmysql* mysql-*
+do
+	apt-get -y remove $Package 
+done
+dpkg -l | grep ^rc | awk '{print $2}' | xargs dpkg -P
 
 apt-get -y update
-# update packages
-apt-get -y upgrade
 
 # check upgrade OS
-[ "$upgrade_yn" == 'y' ] && apt-get -y dist-upgrade 
+[ "$upgrade_yn" == 'y' ] && apt-get -y upgrade 
 
 # Install needed packages
-apt-get -y install gcc g++ make autoconf libjpeg8 libjpeg8-dev libpng12-0 libpng12-dev libpng3 libfreetype6 libfreetype6-dev libxml2 libxml2-dev zlib1g zlib1g-dev libc6 libc6-dev libglib2.0-0 libglib2.0-dev bzip2 libzip-dev libbz2-1.0 libncurses5 libncurses5-dev curl libcurl3 libcurl4-openssl-dev e2fsprogs libkrb5-3 libkrb5-dev libltdl-dev libidn11 libidn11-dev openssl libtool libevent-dev slapd ldap-utils libnss-ldap bison libsasl2-dev libxslt1-dev vim zip unzip tmux htop wget
+for Package in gcc g++ make autoconf libjpeg8 libjpeg8-dev libpng12-0 libpng12-dev libpng3 libfreetype6 libfreetype6-dev libxml2 libxml2-dev zlib1g zlib1g-dev libc6 libc6-dev libglib2.0-0 libglib2.0-dev bzip2 libzip-dev libbz2-1.0 libncurses5 libncurses5-dev curl libcurl3 libcurl4-openssl-dev e2fsprogs libkrb5-3 libkrb5-dev libltdl-dev libidn11 libidn11-dev openssl libtool libevent-dev bison libsasl2-dev libxslt1-dev patch vim zip unzip tmux htop wget bc expect rsync
+do
+	apt-get -y install $Package
+done
 
 if [ ! -z "`cat /etc/issue | grep 13`" ];then
        apt-get -y install libcloog-ppl1
@@ -47,24 +51,32 @@ EOF
 rm -rf /etc/localtime
 ln -s /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
-# Set OpenDNS
-if [ ! -z "`cat /etc/resolv.conf | grep '8\.8\.8\.8'`" ];then
-cat > /etc/resolv.conf << EOF
-nameserver 208.67.222.222
-nameserver 208.67.220.220
-EOF
-fi
+# Set DNS
+#cat > /etc/resolv.conf << EOF
+#nameserver 114.114.114.114
+#nameserver 8.8.8.8
+#EOF
 
 # alias vi
 [ -z "`cat ~/.bashrc | grep 'alias vi='`" ] && sed -i "s@^alias l=\(.*\)@alias l=\1\nalias vi='vim'@" ~/.bashrc
 
 # /etc/sysctl.conf
 [ -z "`cat /etc/sysctl.conf | grep 'fs.file-max'`" ] && cat >> /etc/sysctl.conf << EOF
-net.ipv4.tcp_syncookies = 1
 fs.file-max=65535
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_fin_timeout = 30 
 net.ipv4.tcp_tw_reuse = 1
 net.ipv4.tcp_tw_recycle = 1
 net.ipv4.ip_local_port_range = 1024 65000
+net.ipv4.tcp_max_syn_backlog = 65536 
+net.ipv4.tcp_max_tw_buckets = 6000
+net.ipv4.route.gc_timeout = 100
+net.ipv4.tcp_syn_retries = 1
+net.ipv4.tcp_synack_retries = 1
+net.core.somaxconn = 65535 
+net.core.netdev_max_backlog = 262144
+net.ipv4.tcp_timestamps = 0
+net.ipv4.tcp_max_orphans = 262144
 EOF
 sysctl -p
 
@@ -75,7 +87,7 @@ sed -i 's@^@#@g' /etc/init/control-alt-delete.conf
 
 # Update time
 ntpdate pool.ntp.org 
-echo '*/20 * * * * /usr/sbin/ntpdate pool.ntp.org > /dev/null 2>&1' > /var/spool/cron/crontabs/root;chmod 600 /var/spool/cron/crontabs/root 
+echo "*/20 * * * * `which ntpdate` pool.ntp.org > /dev/null 2>&1" >> /var/spool/cron/crontabs/root;chmod 600 /var/spool/cron/crontabs/root 
 service cron restart
 
 # iptables
@@ -91,6 +103,7 @@ cat > /etc/iptables.up.rules << EOF
 -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
 -A INPUT -p tcp -m state --state NEW -m tcp --dport 22 -j ACCEPT
 -A INPUT -p tcp -m state --state NEW -m tcp --dport 80 -j ACCEPT
+-A INPUT -p tcp -m state --state NEW -m tcp --dport 443 -j ACCEPT
 -A INPUT -p icmp -m limit --limit 100/sec --limit-burst 100 -j ACCEPT
 -A INPUT -p icmp -m limit --limit 1/s --limit-burst 10 -j ACCEPT
 -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -j syn-flood
@@ -99,7 +112,10 @@ cat > /etc/iptables.up.rules << EOF
 -A syn-flood -j REJECT --reject-with icmp-port-unreachable
 COMMIT
 EOF
+FW_PORT_FLAG=`grep -ow "dport $SSH_PORT" /etc/iptables.up.rules` 
+[ -z "$FW_PORT_FLAG" -a "$SSH_PORT" != '22' ] && sed -i "s@dport 22 -j ACCEPT@&\n-A INPUT -p tcp -m state --state NEW -m tcp --dport $SSH_PORT -j ACCEPT@" /etc/iptables.up.rules 
 iptables-restore < /etc/iptables.up.rules
 echo 'pre-up iptables-restore < /etc/iptables.up.rules' >> /etc/network/interfaces
+service ssh restart
 
 . ~/.bashrc

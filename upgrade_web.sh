@@ -15,6 +15,7 @@ echo "#######################################################################"
 
 cd src
 . ../options.conf
+. ../functions/download.sh
 
 [ ! -e "$web_install_dir/sbin/nginx" ] && echo -e "\033[31mThe Nginx/Tengine is not installed on your system!\033[0m " && exit 1
 
@@ -108,6 +109,9 @@ if [ -e "tengine-$tengine_version.tar.gz" ];then
         tar xzf tengine-$tengine_version.tar.gz
         cd tengine-$tengine_version
         make clean
+	# make[1]: *** [objs/src/event/ngx_event_openssl.o] Error 1
+	sed -i 's@\(.*\)this option allow a potential SSL 2.0 rollback (CAN-2005-2969)\(.*\)@#ifdef SSL_OP_MSIE_SSLV2_RSA_PADDING\n\1this option allow a potential SSL 2.0 rollback (CAN-2005-2969)\2@' src/event/ngx_event_openssl.c
+	sed -i 's@\(.*\)SSL_CTX_set_options(ssl->ctx, SSL_OP_MSIE_SSLV2_RSA_PADDING)\(.*\)@\1SSL_CTX_set_options(ssl->ctx, SSL_OP_MSIE_SSLV2_RSA_PADDING)\2\n#endif@' src/event/ngx_event_openssl.c
         $web_install_dir/sbin/nginx -V &> $$
         tengine_configure_arguments=`cat $$ | grep 'configure arguments:' | awk -F: '{print $2}'`
         rm -rf $$
@@ -115,7 +119,25 @@ if [ -e "tengine-$tengine_version.tar.gz" ];then
         make
         if [ -f "objs/nginx" ];then
                 /bin/mv $web_install_dir/sbin/nginx $web_install_dir/sbin/nginx$(date +%m%d)
+                /bin/mv $web_install_dir/sbin/dso_tool $web_install_dir/sbin/dso_tool$(date +%m%d)
+                /bin/mv $web_install_dir/modules $web_install_dir/modules$(date +%m%d)
                 /bin/cp objs/nginx $web_install_dir/sbin/nginx
+                /bin/cp objs/dso_tool $web_install_dir/sbin/dso_tool
+		chmod +x $web_install_dir/sbin/*
+		make install
+		if [ -e "$web_install_dir/modules$(date +%m%d)/ngx_pagespeed.so" ];then
+			cd $lnmp_dir/src
+			rm -rf ngx_pagespeed*
+			src_url=https://dl.google.com/dl/page-speed/psol/1.9.32.1.tar.gz && Download_src
+			[ -s "ngx_pagespeed-1.9.32.1-beta.zip" ] && echo "ngx_pagespeed-1.9.32.1-beta.zip found" || wget -c --no-check-certificate -O ngx_pagespeed-1.9.32.1-beta.zip https://github.com/pagespeed/ngx_pagespeed/archive/master.zip
+
+			unzip -q ngx_pagespeed-1.9.32.1-beta.zip
+			/bin/mv ngx_pagespeed-master ngx_pagespeed-1.9.32.1-beta
+			tar xzf 1.9.32.1.tar.gz -C ngx_pagespeed-1.9.32.1-beta
+			cd tengine-$tengine_version
+			$web_install_dir/sbin/dso_tool --add-module=$lnmp_dir/src/ngx_pagespeed-1.9.32.1-beta
+		fi
+
                 kill -USR2 `cat /var/run/nginx.pid`
                 kill -QUIT `cat /var/run/nginx.pid.oldbin`
                 echo -e "You have \033[32msuccessfully\033[0m upgrade from \033[32m$Old_tengine_version\033[0m to \033[32m$tengine_version\033[0m"

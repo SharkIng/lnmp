@@ -36,7 +36,7 @@ do
         echo
         read -p "Please input upgrade PHP Version: " php_version
         if [ "${php_version%.*}" == "${Old_php_version%.*}" ]; then
-                if [ "${php_version##*.}" -gt "${Old_php_version##*.}" ]; then
+                if [ "${php_version##*.}" -ge "${Old_php_version##*.}" ]; then
                         [ ! -e "php-$php_version.tar.gz" ] && wget -c http://www.php.net/distributions/php-$php_version.tar.gz > /dev/null 2>&1
                         if [ -e "php-$php_version.tar.gz" ];then
                                 echo -e "Download \033[32mphp-$php_version.tar.gz\033[0m successfully! "
@@ -45,7 +45,7 @@ do
                         fi
 			break
                 else
-                        echo -e "Error: You must input PHP version greater than \033[32m$Old_php_version\033[0m!! "
+                        echo -e "Error: You must input PHP version not less than \033[32m$Old_php_version\033[0m!! "
                 fi
         else
                 echo -e "\033[31minput error!\033[0m Please only input '\033[32m${Old_php_version%.*}.xx' \033[0m"
@@ -57,6 +57,8 @@ if [ -e "php-$php_version.tar.gz" ];then
         echo "Press Ctrl+c to cancel or Press any key to continue..."
         char=`get_char`
         tar xzf php-$php_version.tar.gz
+	wget -O fpm-race-condition.patch 'https://bugs.php.net/patch-display.php?bug_id=65398&patch=fpm-race-condition.patch&revision=1375772074&download=1'
+	patch -d php-$php_version -p0 < fpm-race-condition.patch
         cd php-$php_version
 	make clean
         $php_install_dir/bin/php -i |grep 'Configure Command' | awk -F'=>' '{print $2}' | bash
